@@ -63,12 +63,26 @@ public class Game {
     }
 
     public static boolean isValidMove(Board board, String[] coords) {
+        if (coords.length != 4) {
+            System.out.println("Введите 4 числа: x y x1 y1");
+            return false;
+        }
+
+
         int x = Integer.parseInt(coords[1]);
         int y = Integer.parseInt(coords[0]);
         int x1 = Integer.parseInt(coords[3]);
         int y1 = Integer.parseInt(coords[2]);
         if (x < 0 || y < 0 || x1 < 0 || y1 < 0 || x >= board.size || y >= board.size || x1 >= board.size || y1 >= board.size) {
             System.out.println("Вы вышли за границы поля. Попробуйте вести корректные данные");
+            return false;
+        }
+
+        int dx = Math.abs(x - x1);
+        int dy = Math.abs(y - y1);
+        if (!((dx == 1 && dy == 0) || (dx == 0 && dy == 1))) {
+            System.out.println("Можно менять только соседние элементы. \n" +
+                    "Например x:1 y:1 x1:0 y1:1");
             return false;
         }
 
