@@ -54,14 +54,11 @@ public class Game {
         return new BoardState(board, bs.score);
     }
 
-    public static BoardState InitializeGame() {
-        Board newBoard = new Board(8);
-        for (int x = 0; x < newBoard.size; x++) {
-            for (int y = 0; y < newBoard.size; y++) {
-                newBoard.cells[x][y] = new Element(symbols[r.nextInt(symbols.length)]);
-            }
-        }
-        return new BoardState(newBoard,0);
+    public static BoardState initializeGame(int boardSize) {
+        Board emptyBoard = new Board(boardSize);
+        BoardState state = new BoardState(emptyBoard, 0);
+        BoardState afterFilling = fillEmptySpace(state);
+        return processCascade(afterFilling);
     }
 
     public static boolean isValidMove(Board board, String[] coords) {

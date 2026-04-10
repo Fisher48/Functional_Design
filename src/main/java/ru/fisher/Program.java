@@ -3,7 +3,7 @@ package ru.fisher;
 public class Program {
 
     public static void main(String[] args) {
-        BoardState boardState = Game.InitializeGame();
+        BoardState boardState = Game.initializeGame(8);
         boardState = Game.processCascade(boardState);
         boardState.score = 0;
         while (true) {
