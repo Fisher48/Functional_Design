@@ -13,7 +13,7 @@ public class Game {
         for (int i = 0; i < 8; i++) {
             System.out.print(i + " ");
             for (int j = 0; j < 8; j++) {
-                System.out.print(board.cells[i][j].Symbol + " ");
+                System.out.print(board.cells[i][j].symbol + " ");
             }
             System.out.println();
         }
@@ -24,7 +24,7 @@ public class Game {
         Board b = new Board(board.size);
         for (int row = 0; row < board.size; row++) {
             for (int col = 0; col < board.size; col++) {
-                b.cells[row][col] = board.cells[row][col];
+                b.cells[row][col] = new Element(board.cells[row][col].symbol);
             }
         }
         return b;
