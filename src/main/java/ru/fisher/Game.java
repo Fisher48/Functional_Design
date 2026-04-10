@@ -1,5 +1,7 @@
 package ru.fisher;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -87,5 +89,186 @@ public class Game {
         }
 
         return true;
+    }
+
+    private static void addMatchIfValid(List<Match> matches, int row, int col,
+                                        int length, MatchDirection direction) {
+        // Учитываем только комбинации из 3 и более
+        if (length >= 3) {
+            matches.add(new Match(direction, row, col, length));
+        }
+    }
+
+    public static List<Match> findMatches(Board board) {
+        List<Match> matches = new ArrayList<>();
+
+        // Горизонтальные комбинации
+        for (int row = 0; row < board.size; row++) {
+            int startCol = 0;
+
+            for (int col = 1; col < board.size; col++) {
+                // Пропускаем пустые ячейки в начале строки
+                if (board.cells[row][startCol].symbol == Element.EMPTY) {
+                    startCol = col;
+                    continue;
+                }
+                // Если текущая ячейка пустая, обрываем текущую последовательность
+                if (board.cells[row][col].symbol == Element.EMPTY) {
+                    addMatchIfValid(matches, row, startCol, col - startCol, MatchDirection.HORIZONTAL);
+                    startCol = col + 1;
+                    continue;
+                }
+                // Проверяем совпадение для непустых ячеек
+                if (board.cells[row][col].symbol != board.cells[row][startCol].symbol) {
+                    addMatchIfValid(matches, row, startCol, col - startCol, MatchDirection.HORIZONTAL);
+                    startCol = col;
+                } else if (col == board.size - 1) {
+                    addMatchIfValid(matches, row, startCol, col - startCol + 1, MatchDirection.HORIZONTAL);
+                }
+            }
+        }
+
+        // Вертикальные комбинации
+        for (int col = 0; col < board.size; col++) {
+            int startRow = 0;
+
+            for (int row = 1; row < board.size; row++) {
+                // Пропускаем пустые ячейки в начале строки
+                if (board.cells[startRow][col].symbol == Element.EMPTY) {
+                    startRow = row;
+                    continue;
+                }
+
+                // Если текущая ячейка пустая, обрываем текущую последовательность
+                if (board.cells[row][col].symbol == Element.EMPTY) {
+                    addMatchIfValid(matches, startRow, col, row - startRow, MatchDirection.VERTICAL);
+                    startRow = row + 1;
+                    continue;
+                }
+
+                // Проверяем совпадение для непустых ячеек
+                if (board.cells[row][col].symbol != board.cells[startRow][col].symbol) {
+                    addMatchIfValid(matches, startRow, col, row - startRow, MatchDirection.VERTICAL);
+                    startRow = row;
+                } else if (row == board.size - 1) {
+                    addMatchIfValid(matches, startRow, col, row - startRow + 1, MatchDirection.VERTICAL);
+                }
+            }
+        }
+
+        return matches;
+    }
+
+    public static BoardState removeMatches(BoardState currentState, List<Match> matches) {
+        if (matches == null || matches.isEmpty()) {
+            return currentState;
+        }
+
+        // Шаг 1. Помечаем ячейки для удаления
+        Element[][] markedCells = markCellsForRemoval(currentState.board, matches);
+
+        // Шаг 2. Применяем гравитацию
+        Element[][] gravityAppliedCells = applyGravity(markedCells, currentState.board.size);
+
+        // Шаг 3. Подсчитываем очки
+        int removedCount = matches.stream()
+                .mapToInt(m -> m.length)
+                .sum();
+
+        int newScore = currentState.score + calculateScore(removedCount);
+
+        BoardState newBoardState = new BoardState(new Board(currentState.board.size), newScore);
+        newBoardState.board.cells = gravityAppliedCells;
+
+        return newBoardState;
+    }
+
+
+
+    private static Element[][] applyGravity(Element[][] cells, int size) {
+        Element[][] newCells = new Element[size][size];
+
+        for (int row = 0; row < size; row++) {
+            for (int col = 0; col < size; col++) {
+                newCells[row][col] = new Element(Element.EMPTY);
+            }
+        }
+
+        for (int col = 0; col < size; col++) {
+            int newRow = size - 1;
+            for (int row = size - 1; row >= 0; row--) {
+                if (cells[row][col].symbol != Element.EMPTY) {
+                    newCells[newRow][col] = cells[row][col];
+                    newRow--;
+                }
+            }
+        }
+
+        return newCells;
+    }
+
+    private static Element[][] markCellsForRemoval(Board board, List<Match> matches) {
+        Element[][] newCells = deepCopy(board.cells, board.size);
+        for (Match m : matches) {
+            for (int i = 0; i < m.length; i++) {
+                int row = m.direction == MatchDirection.HORIZONTAL ? m.row : m.row + i;
+                int col = m.direction == MatchDirection.HORIZONTAL ? m.col + i : m.col;
+
+                newCells[row][col] = new Element(Element.EMPTY);
+            }
+        }
+        return newCells;
+    }
+
+    private static int calculateScore(int removedCount) {
+        // Базовая система подсчета очков: 10 за каждый элемент
+        return removedCount * 10;
+    }
+
+    public static BoardState fillEmptySpace(BoardState currentState) {
+        if (currentState.board.cells == null) {
+            return currentState;
+        }
+
+        Element[][] newCells = deepCopy(currentState.board.cells, currentState.board.size);
+
+        for (int row = 0; row < currentState.board.size; row++) {
+            for (int col = 0; col < currentState.board.size; col++) {
+                if (newCells[row][col].symbol == Element.EMPTY) {
+                    newCells[row][col] = new Element(symbols[r.nextInt(symbols.length)]);
+                }
+            }
+        }
+
+        BoardState newBoardState = new BoardState(new Board(currentState.board.size), currentState.score);
+        newBoardState.board.cells = newCells;
+
+        return newBoardState;
+    }
+
+    public static Element[][] deepCopy(Element[][] original, int size) {
+        Element[][] copy = new Element[size][size];
+
+        for (int row = 0; row < size; row++) {
+            for (int col = 0; col < size; col++) {
+                copy[row][col] = new Element(original[row][col].symbol);
+            }
+        }
+
+        return copy;
+    }
+
+
+    public static BoardState processCascade(BoardState state) {
+        List<Match> matches = findMatches(state.board);
+
+        if (matches.isEmpty()) {
+            return state;
+        }
+
+        BoardState afterRemove = removeMatches(state, matches);
+        BoardState afterFill = fillEmptySpace(afterRemove);
+
+        return processCascade(afterFill);
     }
 }
