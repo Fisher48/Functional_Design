@@ -1,5 +1,7 @@
 package ru.fisher;
 
+import java.util.function.Function;
+
 public class BoardState {
     Board board;
     int score;
@@ -7,5 +9,9 @@ public class BoardState {
     public BoardState(Board board, int score) {
         this.board = board;
         this.score = score;
+    }
+
+    public BoardState pipe(Function<BoardState, BoardState> func) {
+        return func.apply(this);
     }
 }

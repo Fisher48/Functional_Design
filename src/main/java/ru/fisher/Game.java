@@ -55,10 +55,9 @@ public class Game {
     }
 
     public static BoardState initializeGame(int boardSize) {
-        Board emptyBoard = new Board(boardSize);
-        BoardState state = new BoardState(emptyBoard, 0);
-        BoardState afterFilling = fillEmptySpace(state);
-        return processCascade(afterFilling);
+        return new BoardState(new Board(boardSize), 0)
+                .pipe(Game::fillEmptySpace)
+                .pipe(Game::processCascade);
     }
 
     public static boolean isValidMove(Board board, String[] coords) {
