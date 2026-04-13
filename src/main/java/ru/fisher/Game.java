@@ -256,15 +256,11 @@ public class Game {
 
 
     public static BoardState processCascade(BoardState state) {
-        List<Match> matches = findMatches(state.board);
-
-        if (matches.isEmpty()) {
-            return state;
-        }
-
-        BoardState afterRemove = removeMatches(state, matches);
-        BoardState afterFill = fillEmptySpace(afterRemove);
-
-        return processCascade(afterFill);
+        return findMatches(state.board).isEmpty()
+                ? state
+                : state
+                    .pipe(bs -> removeMatches(bs, findMatches(bs.board)))
+                    .pipe(Game::fillEmptySpace)
+                    .pipe(Game::processCascade);
     }
 }
