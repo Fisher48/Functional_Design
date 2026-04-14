@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.function.Function;
 
 public class Game {
     static Random r = new Random();
@@ -57,9 +58,11 @@ public class Game {
     }
 
     public static BoardState initializeGame(int boardSize) {
-        return new BoardState(new Board(boardSize), 0)
-                .pipe(Game::fillEmptySpace)
-                .pipe(Game::processCascade);
+        return runPipeline(
+                new BoardState(new Board(boardSize), 0),
+                Game::fillEmptySpace,
+                Game::processCascade
+        );
     }
 
     public static boolean isValidMove(Board board, String[] coords) {
@@ -256,13 +259,24 @@ public class Game {
         return copy;
     }
 
+    @SafeVarargs
+    public static <T> T runPipeline(T input, Function<T, T>... steps) {
+        T result = input;
+        for (Function<T, T> step : steps) {
+            result = step.apply(result);
+        }
+        return result;
+    }
+
 
     public static BoardState processCascade(BoardState state) {
         return findMatches(state.board).isEmpty()
                 ? state
-                : state
-                    .pipe(bs -> removeMatches(bs, findMatches(bs.board)))
-                    .pipe(Game::fillEmptySpace)
-                    .pipe(Game::processCascade);
+                : runPipeline(
+                        state,
+                bs -> removeMatches(bs, findMatches(bs.board)),
+                Game::fillEmptySpace,
+                Game::processCascade
+        );
     }
 }
