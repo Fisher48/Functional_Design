@@ -10,7 +10,8 @@ public class Game {
     static Scanner scanner = new Scanner(System.in);
     static char[] symbols = {'A', 'B', 'C', 'D', 'E', 'F'};
 
-    public static void draw(Board board) {
+    public static BoardState draw(BoardState bs) {
+        Board board = bs.board;
         System.out.println("  0 1 2 3 4 5 6 7");
         for (int i = 0; i < 8; i++) {
             System.out.print(i + " ");
@@ -20,6 +21,7 @@ public class Game {
             System.out.println();
         }
         System.out.println();
+        return bs;
     }
 
     public static Board cloneBoard(Board board) {
