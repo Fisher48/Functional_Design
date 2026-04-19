@@ -1,199 +1,153 @@
 package ru.fisher;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.Scanner;
+import java.util.*;
 import java.util.function.Function;
 
 public class Game {
-    static Random r = new Random();
-    static Scanner scanner = new Scanner(System.in);
-    static char[] symbols = {'A', 'B', 'C', 'D', 'E', 'F'};
+    static final Random r = new Random();
+    static final Scanner scanner = new Scanner(System.in);
+    static final char[] SYMBOLS = {'A', 'B', 'C', 'D', 'E', 'F'};
 
-    public static BoardState draw(BoardState bs) {
-        Board board = bs.board;
-        System.out.println("  0 1 2 3 4 5 6 7");
-        for (int i = 0; i < 8; i++) {
-            System.out.print(i + " ");
-            for (int j = 0; j < 8; j++) {
-                System.out.print(board.cells[i][j].symbol + " ");
-            }
-            System.out.println();
-        }
-        System.out.println();
-        return bs;
+    // ------------------- Генерация паттернов для уровня -------------------
+    public static List<Match> generateLevelMatches() {
+        List<Match> patterns = new ArrayList<>();
+
+        // Горизонтальная 3 в ряд (ширина 3, высота 1)
+        patterns.add(new Match(
+                "Horizontal_3",
+                new Position(0, 0),  // origin временный, будет заменён при поиске
+                3, 1,
+                List.of(new Position(0, 0),
+                        new Position(0, 1),
+                        new Position(0, 2)),
+                '?'  // символ будет определён при поиске
+        ));
+
+        // Вертикальная 3 в ряд (ширина 1, высота 3)
+        patterns.add(new Match(
+                "Vertical_3",
+                new Position(0, 0),
+                1, 3,
+                List.of(new Position(0, 0),
+                        new Position(1, 0),
+                        new Position(2, 0)),
+                '?'
+        ));
+
+        // Горизонтальная 4 (дополнительно, для бонуса)
+        patterns.add(new Match(
+                "Horizontal_4",
+                new Position(0, 0),
+                4, 1,
+                List.of(new Position(0, 0),
+                        new Position(0, 1),
+                        new Position(0, 2),
+                        new Position(0, 3)),
+                '?'
+        ));
+
+        // Вертикальная 4
+        patterns.add(new Match(
+                "Vertical_4",
+                new Position(0, 0),
+                1, 4,
+                List.of(new Position(0, 0),
+                        new Position(1, 0),
+                        new Position(2, 0),
+                        new Position(3, 0)),
+                '?'
+        ));
+
+        // Квадрат 2x2
+        patterns.add(new Match(
+                "Square_2x2",
+                new Position(0, 0),
+                2, 2,
+                List.of(new Position(0, 0),
+                        new Position(0, 1),
+                        new Position(1, 0),
+                        new Position(1, 1)),
+                '?'
+        ));
+
+        return patterns;
     }
 
-    public static Board cloneBoard(Board board) {
-        Board b = new Board(board.size);
-        for (int row = 0; row < board.size; row++) {
-            for (int col = 0; col < board.size; col++) {
-                b.cells[row][col] = new Element(board.cells[row][col].symbol);
-            }
-        }
-        return b;
-    }
+    // ------------------- Поиск комбинаций -------------------
+    public static List<Match> findMatches(Board board, List<Match> patterns) {
+        List<Match> found = new ArrayList<>();
 
-    public static BoardState readMove(BoardState bs) {
-        System.out.println(">");
-        String input = scanner.nextLine();
-        if (input.equals("q")) {
-            System.exit(0);
-        }
-        Board board = cloneBoard(bs.board);
-        String[] coords = input.split("\\s");
-        int x = Integer.parseInt(coords[1]);
-        int y = Integer.parseInt(coords[0]);
-        int x1 = Integer.parseInt(coords[3]);
-        int y1 = Integer.parseInt(coords[2]);
-        if (isValidMove(board, coords)) {
-            Element e = board.cells[x][y];
-            board.cells[x][y] = board.cells[x1][y1];
-            board.cells[x1][y1] = e;
-        } else {
-            readMove(bs);
-        }
-        return new BoardState(board, bs.score);
-    }
+        for (Match pattern : patterns) {
+            if (pattern.pattern.isEmpty()) continue;
 
-    public static BoardState initializeGame(int boardSize) {
-        return runPipeline(
-                new BoardState(new Board(boardSize), 0),
-                Game::fillEmptySpace,
-                Game::processCascade
-        );
-    }
+            int maxRow = board.size - pattern.height;
+            int maxCol = board.size - pattern.width;
+            for (int row = 0; row <= maxRow; row++) {
+                for (int col = 0; col <= maxCol; col++) {
+                    // Определим символ первой клетки паттерна
+                    Position firstRel = pattern.pattern.getFirst();
+                    int firstAbsRow = row + firstRel.row;
+                    int firstAbsCol = col + firstRel.col;
+                    char firstSymbol = board.cells[firstAbsRow][firstAbsCol].symbol;
+                    if (firstSymbol == Element.EMPTY) continue;
 
-    public static boolean isValidMove(Board board, String[] coords) {
-        if (coords.length != 4) {
-            System.out.println("Введите 4 числа: x y x1 y1");
-            return false;
-        }
-
-
-        int x = Integer.parseInt(coords[1]);
-        int y = Integer.parseInt(coords[0]);
-        int x1 = Integer.parseInt(coords[3]);
-        int y1 = Integer.parseInt(coords[2]);
-        if (x < 0 || y < 0 || x1 < 0 || y1 < 0 || x >= board.size || y >= board.size || x1 >= board.size || y1 >= board.size) {
-            System.out.println("Вы вышли за границы поля. Попробуйте вести корректные данные");
-            return false;
-        }
-
-        int dx = Math.abs(x - x1);
-        int dy = Math.abs(y - y1);
-        if (!((dx == 1 && dy == 0) || (dx == 0 && dy == 1))) {
-            System.out.println("Можно менять только соседние элементы. \n" +
-                    "Например x:1 y:1 x1:0 y1:1");
-            return false;
-        }
-
-        return true;
-    }
-
-    private static void addMatchIfValid(List<Match> matches, int row, int col,
-                                        int length, MatchDirection direction) {
-        // Учитываем только комбинации из 3 и более
-        if (length >= 3) {
-            matches.add(new Match(direction, row, col, length));
-        }
-    }
-
-    public static List<Match> findMatches(Board board) {
-        List<Match> matches = new ArrayList<>();
-
-        // Горизонтальные комбинации
-        for (int row = 0; row < board.size; row++) {
-            int startCol = 0;
-
-            for (int col = 1; col < board.size; col++) {
-                // Пропускаем пустые ячейки в начале строки
-                if (board.cells[row][startCol].symbol == Element.EMPTY) {
-                    startCol = col;
-                    continue;
-                }
-                // Если текущая ячейка пустая, обрываем текущую последовательность
-                if (board.cells[row][col].symbol == Element.EMPTY) {
-                    addMatchIfValid(matches, row, startCol, col - startCol, MatchDirection.HORIZONTAL);
-                    startCol = col + 1;
-                    continue;
-                }
-                // Проверяем совпадение для непустых ячеек
-                if (board.cells[row][col].symbol != board.cells[row][startCol].symbol) {
-                    addMatchIfValid(matches, row, startCol, col - startCol, MatchDirection.HORIZONTAL);
-                    startCol = col;
-                } else if (col == board.size - 1) {
-                    addMatchIfValid(matches, row, startCol, col - startCol + 1, MatchDirection.HORIZONTAL);
+                    boolean match = true;
+                    for (Position rel : pattern.pattern) {
+                        int absRow = row + rel.row;
+                        int absCol = col + rel.col;
+                        char sym = board.cells[absRow][absCol].symbol;
+                        if (sym == Element.EMPTY || sym != firstSymbol) {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match) {
+                        found.add(new Match(
+                                pattern.name,
+                                new Position(row, col),
+                                pattern.width,
+                                pattern.height,
+                                pattern.pattern,
+                                firstSymbol
+                        ));
+                    }
                 }
             }
         }
+        return found;
+    }
 
-        // Вертикальные комбинации
-        for (int col = 0; col < board.size; col++) {
-            int startRow = 0;
+    // ------------------- Удаление комбинаций -------------------
+    public static BoardState removeMatches(BoardState state, List<Match> matches) {
+        if (matches.isEmpty()) return state;
 
-            for (int row = 1; row < board.size; row++) {
-                // Пропускаем пустые ячейки в начале строки
-                if (board.cells[startRow][col].symbol == Element.EMPTY) {
-                    startRow = row;
-                    continue;
-                }
-
-                // Если текущая ячейка пустая, обрываем текущую последовательность
-                if (board.cells[row][col].symbol == Element.EMPTY) {
-                    addMatchIfValid(matches, startRow, col, row - startRow, MatchDirection.VERTICAL);
-                    startRow = row + 1;
-                    continue;
-                }
-
-                // Проверяем совпадение для непустых ячеек
-                if (board.cells[row][col].symbol != board.cells[startRow][col].symbol) {
-                    addMatchIfValid(matches, startRow, col, row - startRow, MatchDirection.VERTICAL);
-                    startRow = row;
-                } else if (row == board.size - 1) {
-                    addMatchIfValid(matches, startRow, col, row - startRow + 1, MatchDirection.VERTICAL);
+        Board newBoard = cloneBoard(state.board);
+        for (Match match : matches) {
+            for (Position pos : match.getAbsolutePositions()) {
+                if (pos.row >= 0 && pos.row < newBoard.size && pos.col >= 0 && pos.col < newBoard.size) {
+                    newBoard.cells[pos.row][pos.col] = new Element(Element.EMPTY);
                 }
             }
         }
 
-        return matches;
+        // Подсчёт очков (можно сделать по-разному, например, за длину + бонус за тип)
+        int totalRemoved = matches.stream().mapToInt(m -> m.pattern.size()).sum();
+        int scoreGain = calculateScore(totalRemoved);
+        int newScore = state.score + scoreGain;
+
+        return new BoardState(newBoard, newScore);
     }
 
-    public static BoardState removeMatches(BoardState currentState, List<Match> matches) {
-        if (matches == null || matches.isEmpty()) {
-            return currentState;
-        }
-
-        // Шаг 1. Помечаем ячейки для удаления
-        Element[][] markedCells = markCellsForRemoval(currentState.board, matches);
-
-        // Шаг 2. Применяем гравитацию
-        Element[][] gravityAppliedCells = applyGravity(markedCells, currentState.board.size);
-
-        // Шаг 3. Подсчитываем очки
-        int removedCount = matches.stream()
-                .mapToInt(m -> m.length)
-                .sum();
-
-        int newScore = currentState.score + calculateScore(removedCount);
-
-        BoardState newBoardState = new BoardState(new Board(currentState.board.size), newScore);
-        newBoardState.board.cells = gravityAppliedCells;
-
-        return newBoardState;
+    private static int calculateScore(int removedCount) {
+        return removedCount * 10;
     }
 
-
-
+    // ------------------- Гравитация -------------------
     private static Element[][] applyGravity(Element[][] cells, int size) {
         Element[][] newCells = new Element[size][size];
-
-        for (int row = 0; row < size; row++) {
-            for (int col = 0; col < size; col++) {
+        for (int row = 0; row < size; row++)
+            for (int col = 0; col < size; col++)
                 newCells[row][col] = new Element(Element.EMPTY);
-            }
-        }
 
         for (int col = 0; col < size; col++) {
             int newRow = size - 1;
@@ -204,79 +158,140 @@ public class Game {
                 }
             }
         }
-
         return newCells;
     }
 
-    private static Element[][] markCellsForRemoval(Board board, List<Match> matches) {
-        Element[][] newCells = deepCopy(board.cells, board.size);
-        for (Match m : matches) {
-            for (int i = 0; i < m.length; i++) {
-                int row = m.direction == MatchDirection.HORIZONTAL ? m.row : m.row + i;
-                int col = m.direction == MatchDirection.HORIZONTAL ? m.col + i : m.col;
-
-                newCells[row][col] = new Element(Element.EMPTY);
-            }
-        }
-        return newCells;
+    // Применяем гравитацию к BoardState (чистая функция)
+    public static BoardState applyGravity(BoardState state) {
+        Element[][] newCells = applyGravity(state.board.cells, state.board.size);
+        Board newBoard = new Board(state.board.size);
+        newBoard.cells = newCells;
+        return new BoardState(newBoard, state.score);
     }
 
-    private static int calculateScore(int removedCount) {
-        // Базовая система подсчета очков: 10 за каждый элемент
-        return removedCount * 10;
-    }
-
-    public static BoardState fillEmptySpace(BoardState currentState) {
-        if (currentState.board.cells == null) {
-            return currentState;
-        }
-
-        Element[][] newCells = deepCopy(currentState.board.cells, currentState.board.size);
-
-        for (int row = 0; row < currentState.board.size; row++) {
-            for (int col = 0; col < currentState.board.size; col++) {
+    // ------------------- Заполнение пустот -------------------
+    public static BoardState fillEmptySpace(BoardState state) {
+        Element[][] newCells = deepCopy(state.board.cells, state.board.size);
+        for (int row = 0; row < state.board.size; row++) {
+            for (int col = 0; col < state.board.size; col++) {
                 if (newCells[row][col].symbol == Element.EMPTY) {
-                    newCells[row][col] = new Element(symbols[r.nextInt(symbols.length)]);
+                    newCells[row][col] = new Element(SYMBOLS[r.nextInt(SYMBOLS.length)]);
                 }
             }
         }
+        Board newBoard = new Board(state.board.size);
+        newBoard.cells = newCells;
+        return new BoardState(newBoard, state.score);
+    }
 
-        BoardState newBoardState = new BoardState(new Board(currentState.board.size), currentState.score);
-        newBoardState.board.cells = newCells;
-
-        return newBoardState;
+    // ------------------- Вспомогательные -------------------
+    public static Board cloneBoard(Board board) {
+        Board copy = new Board(board.size);
+        for (int i = 0; i < board.size; i++)
+            System.arraycopy(board.cells[i], 0, copy.cells[i], 0, board.size);
+        return copy;
     }
 
     public static Element[][] deepCopy(Element[][] original, int size) {
         Element[][] copy = new Element[size][size];
-
-        for (int row = 0; row < size; row++) {
-            for (int col = 0; col < size; col++) {
-                copy[row][col] = new Element(original[row][col].symbol);
-            }
-        }
-
+        for (int i = 0; i < size; i++)
+            for (int j = 0; j < size; j++)
+                copy[i][j] = new Element(original[i][j].symbol);
         return copy;
     }
 
+    // ------------------- Конвейер -------------------
     @SafeVarargs
     public static <T> T runPipeline(T input, Function<T, T>... steps) {
         T result = input;
-        for (Function<T, T> step : steps) {
+        for (Function<T, T> step : steps)
             result = step.apply(result);
-        }
         return result;
     }
 
-
+    // ------------------- Основной игровой процесс -------------------
     public static BoardState processCascade(BoardState state) {
-        return findMatches(state.board).isEmpty()
-                ? state
-                : runPipeline(
-                        state,
-                bs -> removeMatches(bs, findMatches(bs.board)),
+        List<Match> patterns = generateLevelMatches();
+        List<Match> matches = findMatches(state.board, patterns);
+        if (matches.isEmpty()) return state;
+
+        return runPipeline(
+                state,
+                s -> removeMatches(s, matches),
+                Game::applyGravity,
                 Game::fillEmptySpace,
                 Game::processCascade
         );
+    }
+
+    public static BoardState initializeGame(int boardSize) {
+        Board empty = new Board(boardSize);
+        BoardState state = new BoardState(empty, 0);
+        // Заполняем пустоты случайными фишками и сразу прогоняем каскады
+        return runPipeline(state, Game::fillEmptySpace, Game::processCascade);
+    }
+
+    // ------------------- Ввод/вывод -------------------
+    public static BoardState draw(BoardState bs) {
+        Board board = bs.board;
+        System.out.println("  0 1 2 3 4 5 6 7");
+        for (int i = 0; i < board.size; i++) {
+            System.out.print(i + " ");
+            for (int j = 0; j < board.size; j++) {
+                System.out.print(board.cells[i][j].symbol + " ");
+            }
+            System.out.println();
+        }
+        System.out.println("Очки: " + bs.score);
+        return bs;
+    }
+
+    public static BoardState readMove(BoardState state) {
+        while (true) {
+            System.out.print("> ");
+            String input = scanner.nextLine();
+            if (input.equals("q")) System.exit(0);
+            String[] parts = input.split("\\s");
+            if (parts.length != 4) {
+                System.out.println("Нужно 4 числа: строка столбец строка столбец");
+                continue;
+            }
+            try {
+                int row1 = Integer.parseInt(parts[0]);
+                int col1 = Integer.parseInt(parts[1]);
+                int row2 = Integer.parseInt(parts[2]);
+                int col2 = Integer.parseInt(parts[3]);
+
+                if (!isValidMove(state.board, row1, col1, row2, col2)) {
+                    System.out.println("Неверный ход (только соседние клетки, в пределах поля)");
+                    continue;
+                }
+
+                Board newBoard = cloneBoard(state.board);
+                Element tmp = newBoard.cells[row1][col1];
+                newBoard.cells[row1][col1] = newBoard.cells[row2][col2];
+                newBoard.cells[row2][col2] = tmp;
+
+                // Проверяем, создаёт ли ход хотя бы одну комбинацию
+                List<Match> patterns = generateLevelMatches();
+                if (findMatches(newBoard, patterns).isEmpty()) {
+                    System.out.println("Этот ход не создаёт комбинаций, попробуйте другой.");
+                    continue;
+                }
+
+                return new BoardState(newBoard, state.score);
+            } catch (NumberFormatException e) {
+                System.out.println("Ошибка: введите числа");
+            }
+        }
+    }
+
+    private static boolean isValidMove(Board board, int row1, int col1, int row2, int col2) {
+        if (row1 < 0 || row1 >= board.size || col1 < 0 || col1 >= board.size ||
+                row2 < 0 || row2 >= board.size || col2 < 0 || col2 >= board.size)
+            return false;
+        int dr = Math.abs(row1 - row2);
+        int dc = Math.abs(col1 - col2);
+        return (dr == 1 && dc == 0) || (dr == 0 && dc == 1);
     }
 }
