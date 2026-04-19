@@ -1,8 +1,8 @@
 package ru.fisher;
 
 public class Board {
-    int size;
-    Element[][] cells;
+    public final int size;
+    public Element[][] cells;
 
     public Board(int s) {
         this.size = s;

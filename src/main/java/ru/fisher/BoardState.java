@@ -3,8 +3,8 @@ package ru.fisher;
 import java.util.function.Function;
 
 public class BoardState {
-    Board board;
-    int score;
+    public final Board board;
+    public int score;
 
     public BoardState(Board board, int score) {
         this.board = board;

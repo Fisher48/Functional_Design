@@ -8,7 +8,6 @@ public class Program {
         boardState.score = 0;
         while (true) {
             Game.draw(boardState);
-            System.out.println("Очки: " + boardState.score);
             boardState = Game.readMove(boardState);
             boardState = Game.processCascade(boardState);
         }
